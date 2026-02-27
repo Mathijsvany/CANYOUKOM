@@ -1,1 +1,8 @@
-"node_modules/" 
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+.env.*.local
+.DS_Store
