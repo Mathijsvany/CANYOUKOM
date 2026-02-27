@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Activity, MapPin, Mountain, Search, Timer, Weight, Zap, ChevronRight, TrendingUp } from 'lucide-react'
 import { calculateTargetWattsForUser, calculateEtalonWkg, SurfaceType } from './physics-model'
-import { getStravaLoginUrl, exchangeCodeForToken, StravaAuthParams, exploreSegments, getSegmentDetails, StravaSegmentExplore, parseKomTimeToSeconds } from './strava-api'
+import { getStravaLoginUrl, exchangeCodeForToken, StravaAuthParams, exploreSegments, getSegmentDetails, StravaSegmentExplore, parseKomTimeToSeconds, refreshStravaToken } from './strava-api'
 import { PowerProfile, estimateMaxPowerForDuration } from './power-profile'
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents } from 'react-leaflet'
 
@@ -44,9 +44,26 @@ function App() {
 
     useEffect(() => {
         // Load auth from local storage if available
-        const savedAuth = localStorage.getItem('stravaAuth');
-        if (savedAuth) {
-            setAuth(JSON.parse(savedAuth));
+        const savedAuthStr = localStorage.getItem('stravaAuth');
+        if (savedAuthStr) {
+            const savedAuth = JSON.parse(savedAuthStr) as StravaAuthParams;
+            const currentTimeSeconds = Math.floor(Date.now() / 1000);
+
+            if (savedAuth.expiresAt < currentTimeSeconds) {
+                console.log("Strava token expired, attempting refresh...");
+                refreshStravaToken(savedAuth.refreshToken).then(newAuth => {
+                    if (newAuth) {
+                        setAuth(newAuth);
+                        localStorage.setItem('stravaAuth', JSON.stringify(newAuth));
+                    } else {
+                        console.error("Token refresh failed, requesting user to re-login.");
+                        localStorage.removeItem('stravaAuth');
+                        setAuth(null);
+                    }
+                });
+            } else {
+                setAuth(savedAuth);
+            }
         }
 
         // Check if returning from Strava OAuth

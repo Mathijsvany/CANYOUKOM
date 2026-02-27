@@ -71,6 +71,44 @@ export async function exchangeCodeForToken(code: string): Promise<StravaAuthPara
     }
 }
 
+/**
+ * Refreshes an expired Strava access token
+ */
+export async function refreshStravaToken(refreshToken: string): Promise<StravaAuthParams | null> {
+    if (!STRAVA_CLIENT_ID || !STRAVA_CLIENT_SECRET) {
+        return null;
+    }
+
+    try {
+        const response = await fetch(TOKEN_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                client_id: STRAVA_CLIENT_ID,
+                client_secret: STRAVA_CLIENT_SECRET,
+                grant_type: 'refresh_token',
+                refresh_token: refreshToken,
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`Strava auth refresh failed: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        return {
+            accessToken: data.access_token,
+            refreshToken: data.refresh_token,
+            expiresAt: data.expires_at,
+        };
+    } catch (error) {
+        console.error("Error refreshing token", error);
+        return null;
+    }
+}
+
 export interface StravaSegmentExplore {
     id: number;
     name: string;
