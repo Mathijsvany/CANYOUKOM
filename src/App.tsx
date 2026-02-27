@@ -29,6 +29,8 @@ function App() {
     const [elevation, setElevation] = useState<number>(0); // meters
     const [komTime, setKomTime] = useState<number>(0); // seconds
     const [hasKomData, setHasKomData] = useState<boolean>(true); // Tracks if Strava provided a KOM
+    const [segmentXoms, setSegmentXoms] = useState<{ kom?: string, qom?: string } | null>(null);
+    const [targetGender, setTargetGender] = useState<'kom' | 'qom'>('kom');
     const [surfaceType, setSurfaceType] = useState<SurfaceType>('tarmac');
 
     const [userWeight, setUserWeight] = useState<number>(75); // kg
@@ -116,18 +118,33 @@ function App() {
                 setSurfaceType('tarmac');
             }
 
-            let komString = details.xoms?.kom;
-
-            if (komString && komString !== "null") {
-                const seconds = parseKomTimeToSeconds(komString);
-                setKomTime(seconds);
-                setHasKomData(true);
+            if (details.xoms) {
+                setSegmentXoms(details.xoms);
             } else {
-                setKomTime(0);
-                setHasKomData(false);
+                setSegmentXoms(null);
             }
         }
     };
+
+    // Update the active time when the gender or xom data changes
+    useEffect(() => {
+        if (!segmentXoms) {
+            setKomTime(0);
+            setHasKomData(false);
+            return;
+        }
+
+        const timeString = targetGender === 'kom' ? segmentXoms.kom : segmentXoms.qom;
+
+        if (timeString && timeString !== "null") {
+            const seconds = parseKomTimeToSeconds(timeString);
+            setKomTime(seconds);
+            setHasKomData(true);
+        } else {
+            setKomTime(0);
+            setHasKomData(false);
+        }
+    }, [segmentXoms, targetGender]);
 
     // Basic calculation
     const target = calculateTargetWattsForUser(distance, elevation, komTime, userWeight, userBikeWeight, surfaceType);
@@ -297,6 +314,35 @@ function App() {
                             </div>
                             <div className="input-group mb-6">
                                 <div className="input-field">
+                                    <label>Target Crown</label>
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <button
+                                            onClick={() => setTargetGender('kom')}
+                                            style={{
+                                                flex: 1, padding: '0.75rem', borderRadius: '0.75rem', fontWeight: 600,
+                                                backgroundColor: targetGender === 'kom' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(0,0,0,0.3)',
+                                                border: targetGender === 'kom' ? '1px solid var(--accent-color)' : '1px solid var(--border-color)',
+                                                color: targetGender === 'kom' ? 'var(--accent-light)' : 'var(--text-sub)',
+                                                cursor: 'pointer'
+                                            }}>
+                                            Men (KOM)
+                                        </button>
+                                        <button
+                                            onClick={() => setTargetGender('qom')}
+                                            style={{
+                                                flex: 1, padding: '0.75rem', borderRadius: '0.75rem', fontWeight: 600,
+                                                backgroundColor: targetGender === 'qom' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(0,0,0,0.3)',
+                                                border: targetGender === 'qom' ? '1px solid var(--accent-color)' : '1px solid var(--border-color)',
+                                                color: targetGender === 'qom' ? 'var(--accent-light)' : 'var(--text-sub)',
+                                                cursor: 'pointer'
+                                            }}>
+                                            Women (QOM)
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="input-group mb-6">
+                                <div className="input-field">
                                     <label>Your Weight (kg)</label>
                                     <input type="number" value={userWeight} onChange={e => setUserWeight(Number(e.target.value))} />
                                 </div>
@@ -340,7 +386,7 @@ function App() {
 
                             {!hasKomData || komTime === 0 ? (
                                 <div style={{ padding: "2rem 0", color: "var(--text-sub)", fontStyle: "italic" }}>
-                                    KOM data not available for this segment via the Strava API.
+                                    {targetGender.toUpperCase()} data not available for this segment via the Strava API.
                                 </div>
                             ) : (
                                 <>
@@ -364,7 +410,7 @@ function App() {
                                         textAlign: "center"
                                     }}>
                                         <h4 style={{ color: isAttainable ? "#10B981" : "#EF4444", marginBottom: "0.25rem", fontSize: "1.1rem" }}>
-                                            {isAttainable ? "KOM is Possible! 👑" : "Needs More Training 🥵"}
+                                            {isAttainable ? `${targetGender.toUpperCase()} is Possible! 👑` : "Needs More Training 🥵"}
                                         </h4>
                                         <p style={{ color: "var(--text-main)", fontSize: "0.9rem" }}>
                                             Your estimated capacity for this duration is <strong>{Math.round(estimatedUserCapacity)}W</strong>.
@@ -387,7 +433,7 @@ function App() {
                                             <p>{distance > 0 ? ((elevation / distance) * 100).toFixed(1) : 0}%</p>
                                         </div>
                                         <div className="stat-box">
-                                            <h4>KOM Speed</h4>
+                                            <h4>{targetGender === 'kom' ? 'KOM' : 'QOM'} Speed</h4>
                                             <p>{komTime > 0 ? ((distance / 1000) / (komTime / 3600)).toFixed(1) : 0} km/h</p>
                                         </div>
                                     </div>
